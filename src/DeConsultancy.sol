@@ -1,4 +1,4 @@
-// Layout of Contract:
+// Layout of Contract: //
 // version
 // imports
 // errors
@@ -9,7 +9,7 @@
 // Modifiers
 // Functions
 
-// Layout of Functions
+// Layout of Functions //
 // constructor
 // receive function (if exists)
 // fallback function (if exists)
@@ -23,9 +23,25 @@
 pragma solidity ^0.8.19;
 
 // Import
-import "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 contract DeConsultancy is ReentrancyGuard {
+    //Errors
+    error DeConsultancy__BuyerSellerSame();
+    error DeConsultancy__PriceNotSet();
+    error DeConsultancy__IncorrectPrice();
+    error DeConsultancy__InvalidDuration();
+    error DeConsultancy__DurationTooLong();
+    error DeConsultancy__OrderNotExist();
+    error DeConsultancy__NotSeller();
+    error DeConsultancy__NotBuyer();
+    error DeConsultancy__Unauthorized();
+    error DeConsultancy__NotArbiter();
+    error DeConsultancy__DeadlinePassed();
+    error DeConsultancy__DeadlineNotPassed();
+    error DeConsultancy__InvalidState();
+    error DeConsultancy__TimeoutNotReached();
+
     // Type Declarations
     enum State {
         Created,
@@ -80,13 +96,22 @@ contract DeConsultancy is ReentrancyGuard {
         public
         payable
     {
-        require(_seller != msg.sender, "Buyer and seller cannot be same");
-
+        if (_seller == msg.sender) {
+            revert DeConsultancy__BuyerSellerSame();
+        }
         uint256 _price = sellerPrice[_seller];
-        require(_price > 0, "Seller has not set a price");
-        require(msg.value == _price, "Sended value does not match the price");
-        require(_deliveryDuration > 0, "Invalid duration");
-        require(_deliveryDuration <= 30 days, "Delivery duration too long");
+        if (_price == 0) {
+            revert DeConsultancy__PriceNotSet();
+        }
+        if (msg.value != _price) {
+            revert DeConsultancy__IncorrectPrice();
+        }
+        if (_deliveryDuration == 0) {
+            revert DeConsultancy__InvalidDuration();
+        }
+        if (_deliveryDuration > 30 days) {
+            revert DeConsultancy__DurationTooLong();
+        }
 
         orderCount++;
 
@@ -108,10 +133,18 @@ contract DeConsultancy is ReentrancyGuard {
     function markDelivered(uint256 _orderId, string memory _workHash) public {
         Order storage order = orders[_orderId];
 
-        require(order.buyer != address(0), "Order does not exist");
-        require(block.timestamp <= order.deadline, "Delivery deadline has passed");
-        require(msg.sender == order.seller, "Only seller can mark as delivered");
-        require(order.state == State.Paid, "Order must be in Paid state");
+        if (order.buyer == address(0)) {
+            revert DeConsultancy__OrderNotExist();
+        }
+        if (block.timestamp > order.deadline) {
+            revert DeConsultancy__DeadlinePassed();
+        }
+        if (msg.sender != order.seller) {
+            revert DeConsultancy__NotSeller();
+        }
+        if (order.state != State.Paid) {
+            revert DeConsultancy__InvalidState();
+        }
 
         order.state = State.Delivered;
         order.deliveryTime = block.timestamp;
@@ -122,10 +155,18 @@ contract DeConsultancy is ReentrancyGuard {
     function claimRefund(uint256 _orderId) public nonReentrant {
         Order storage order = orders[_orderId];
 
-        require(order.buyer != address(0), "Order does not exist");
-        require(order.state == State.Paid, "Order must be in Paid state");
-        require(msg.sender == order.buyer, "Only Buyer can claim refund");
-        require(block.timestamp >= order.deadline, "Can claim only after deadline is over");
+        if (order.buyer == address(0)) {
+            revert DeConsultancy__OrderNotExist();
+        }
+        if (order.state != State.Paid) {
+            revert DeConsultancy__InvalidState();
+        }
+        if (order.buyer != msg.sender) {
+            revert DeConsultancy__NotBuyer();
+        }
+        if (block.timestamp < order.deadline) {
+            revert DeConsultancy__DeadlineNotPassed();
+        }
 
         order.state = State.Completed;
 
@@ -138,10 +179,15 @@ contract DeConsultancy is ReentrancyGuard {
     function approveAndRelease(uint256 _orderId) public nonReentrant {
         Order storage order = orders[_orderId];
 
-        require(order.buyer != address(0), "Order does not exist");
-        require(msg.sender == order.buyer, "Only buyer can approve");
-        require(order.state == State.Delivered, "Order must be deliverd to be Approved by buyer");
-
+        if (order.buyer == address(0)) {
+            revert DeConsultancy__OrderNotExist();
+        }
+        if (order.state != State.Delivered) {
+            revert DeConsultancy__InvalidState();
+        }
+        if (order.buyer != msg.sender) {
+            revert DeConsultancy__NotBuyer();
+        }
         order.state = State.Completed;
 
         /*
@@ -159,10 +205,18 @@ contract DeConsultancy is ReentrancyGuard {
     function claimAfterTimeout(uint256 _orderId) public nonReentrant {
         Order storage order = orders[_orderId];
 
-        require(order.buyer != address(0), "Order does not exist");
-        require(order.state == State.Delivered, "Not Delivered");
-        require(block.timestamp >= order.deliveryTime + TIMEOUT, "Timeout not reached");
-        require(msg.sender == order.seller, "Only seller");
+        if (order.buyer == address(0)) {
+            revert DeConsultancy__OrderNotExist();
+        }
+        if (order.state != State.Delivered) {
+            revert DeConsultancy__InvalidState();
+        }
+        if (order.seller != msg.sender) {
+            revert DeConsultancy__NotSeller();
+        }
+        if (block.timestamp < order.deliveryTime + TIMEOUT) {
+            revert DeConsultancy__TimeoutNotReached();
+        }
 
         order.state = State.Completed;
 
@@ -175,9 +229,15 @@ contract DeConsultancy is ReentrancyGuard {
     function raiseDispute(uint256 _orderId) public {
         Order storage order = orders[_orderId];
 
-        require(order.buyer != address(0), "Order does not exists");
-        require(msg.sender == order.buyer || msg.sender == order.seller, "Not Authorized");
-        require(order.state == State.Delivered, "Can dispute only after delivery");
+        if (order.buyer == address(0)) {
+            revert DeConsultancy__OrderNotExist();
+        }
+        if (order.state != State.Delivered) {
+            revert DeConsultancy__InvalidState();
+        }
+        if (order.buyer != msg.sender && order.seller != msg.sender) {
+            revert DeConsultancy__Unauthorized();
+        }
 
         order.state = State.Disputed;
         order.disputed = true;
@@ -188,8 +248,12 @@ contract DeConsultancy is ReentrancyGuard {
     function resolveDispute(uint256 _orderId, bool releaseToSeller) public nonReentrant {
         Order storage order = orders[_orderId];
 
-        require(msg.sender == arbiter, "only arbiter can resolve dispute");
-        require(order.state == State.Disputed, "Order must be in disputed state");
+        if (msg.sender != arbiter) {
+            revert DeConsultancy__NotArbiter();
+        }
+        if (order.state != State.Disputed) {
+            revert DeConsultancy__InvalidState();
+        }
 
         order.state = State.Completed;
 
@@ -204,9 +268,15 @@ contract DeConsultancy is ReentrancyGuard {
     function resolveSplit(uint256 _orderId, uint256 sellerAmount) public nonReentrant {
         Order storage order = orders[_orderId];
 
-        require(msg.sender == arbiter, "only arbiter can resolve dispute");
-        require(order.state == State.Disputed, "Order must be in disputed state");
-        require(sellerAmount <= order.price, "Seller amount cannot exceed total price");
+        if (msg.sender != arbiter) {
+            revert DeConsultancy__NotArbiter();
+        }
+        if (order.state != State.Disputed) {
+            revert DeConsultancy__InvalidState();
+        }
+        if (sellerAmount > order.price) {
+            revert DeConsultancy__IncorrectPrice();
+        }
 
         order.state = State.Completed;
 
@@ -220,6 +290,35 @@ contract DeConsultancy is ReentrancyGuard {
             (bool success,) = payable(order.buyer).call{value: buyerAmount}("");
             require(success, "Transfer to buyer failed");
         }
+    }
+
+    // Getter functions
+    function getOrder(uint256 _orderId) public view returns (Order memory) {
+        return orders[_orderId];
+    }
+
+    function getOrderCount() public view returns (uint256) {
+        return orderCount;
+    }
+
+    function getSellerPrice(address _seller) public view returns (uint256) {
+        return sellerPrice[_seller];
+    }
+
+    function getOrderState(uint256 _orderId) public view returns (State) {
+        return orders[_orderId].state;
+    }
+
+    function getDeadline(uint256 _orderId) public view returns (uint256) {
+        return orders[_orderId].deadline;
+    }
+
+    function getDeliveryTime(uint256 _orderId) public view returns (uint256) {
+        return orders[_orderId].deliveryTime;
+    }
+
+    function orderExists(uint256 _orderId) public view returns (bool) {
+        return orders[_orderId].buyer != address(0);
     }
 }
 
