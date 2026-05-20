@@ -189,11 +189,7 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param orderId ID of the disputed order
     /// @param arbiter Address of the arbiter who voted
     /// @param voteSeller True if vote is in favor of seller, false for buyer
-    event Voted(
-        uint256 indexed orderId,
-        address indexed arbiter,
-        bool voteSeller
-    );
+    event Voted(uint256 indexed orderId, address indexed arbiter, bool voteSeller);
 
     /// @notice Emitted when a dispute is resolved in favor of one party
     /// @param orderId ID of the disputed order
@@ -204,11 +200,7 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param orderId ID of the disputed order
     /// @param sellerAmount Amount transferred to seller after fee deduction
     /// @param buyerAmount Amount refunded to buyer
-    event DisputeResolvedSplit(
-        uint256 indexed orderId,
-        uint256 sellerAmount,
-        uint256 buyerAmount
-    );
+    event DisputeResolvedSplit(uint256 indexed orderId, uint256 sellerAmount, uint256 buyerAmount);
 
     // Functions
     constructor(address[] memory _arbiters, address _feeRecipient) {
@@ -266,12 +258,10 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller, ) = payable(order.seller).call{
-            value: sellerAmount
-        }("");
+        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
         require(successSeller, "Transfer to seller failed");
 
-        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
         require(successFee, "Transfer of fee failed");
 
         delete sellerVotes[_orderId];
@@ -296,7 +286,7 @@ contract DeConsultancy is ReentrancyGuard {
         disputeResolved[_orderId] = true;
         order.state = State.Completed;
 
-        (bool success, ) = payable(order.buyer).call{value: order.price}("");
+        (bool success,) = payable(order.buyer).call{value: order.price}("");
         require(success, "Transfer failed");
 
         delete sellerVotes[_orderId];
@@ -311,11 +301,7 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param _seller Address of the seller providing the service
     /// @param _deliveryDuration Time (in seconds) within which seller must deliver after acceptance
     /// @param _requirementsHash Hash of off-chain requirements (IPFS or similar)
-    function createOrderAndPay(
-        address _seller,
-        uint256 _deliveryDuration,
-        bytes32 _requirementsHash
-    ) public payable {
+    function createOrderAndPay(address _seller, uint256 _deliveryDuration, bytes32 _requirementsHash) public payable {
         if (_seller == msg.sender) {
             revert DeConsultancy__BuyerSellerSame();
         }
@@ -349,14 +335,7 @@ contract DeConsultancy is ReentrancyGuard {
             requirementsHash: _requirementsHash
         });
 
-        emit OrderCreated(
-            orderCount,
-            msg.sender,
-            _seller,
-            _price,
-            _deliveryDuration,
-            _requirementsHash
-        );
+        emit OrderCreated(orderCount, msg.sender, _seller, _price, _deliveryDuration, _requirementsHash);
     }
 
     /// @notice Allows buyer to cancel an unaccepted order after timeout
@@ -383,7 +362,7 @@ contract DeConsultancy is ReentrancyGuard {
 
         order.state = State.Completed;
 
-        (bool success, ) = payable(order.buyer).call{value: order.price}("");
+        (bool success,) = payable(order.buyer).call{value: order.price}("");
 
         require(success);
 
@@ -461,7 +440,7 @@ contract DeConsultancy is ReentrancyGuard {
 
         order.state = State.Completed;
 
-        (bool success, ) = payable(order.buyer).call{value: order.price}("");
+        (bool success,) = payable(order.buyer).call{value: order.price}("");
         require(success, "Refund transfer failed");
 
         emit RefundClaimed(_orderId);
@@ -487,12 +466,10 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller, ) = payable(order.seller).call{
-            value: sellerAmount
-        }("");
+        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
         require(successSeller, "Transfer to seller failed");
 
-        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
         require(successFee, "Fee transfer failed");
 
         emit OrderCompleted(_orderId);
@@ -522,12 +499,10 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller, ) = payable(order.seller).call{
-            value: sellerAmount
-        }("");
+        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
         require(successSeller, "Transfer to seller failed");
 
-        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
         require(successFee, "Fee transfer failed");
 
         emit AfterTimeoutClaimed(_orderId);
@@ -602,10 +577,7 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param sellerAmount Amount (in wei) allocated to seller before fee deduction
     /// @dev WARNING: This function allows a single arbiter to override dispute outcome.
     /// Should only be used in trusted arbitration setups.
-    function resolveSplit(
-        uint256 _orderId,
-        uint256 sellerAmount
-    ) public nonReentrant {
+    function resolveSplit(uint256 _orderId, uint256 sellerAmount) public nonReentrant {
         Order storage order = orders[_orderId];
 
         if (order.buyer == address(0)) {
@@ -633,18 +605,14 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 sellerAmountAfterFee = sellerAmount - fee;
 
         if (sellerAmount > 0) {
-            (bool successSeller, ) = payable(order.seller).call{
-                value: sellerAmountAfterFee
-            }("");
+            (bool successSeller,) = payable(order.seller).call{value: sellerAmountAfterFee}("");
             require(successSeller, "Transfer to seller failed");
 
-            (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
+            (bool successFee,) = payable(feeRecipient).call{value: fee}("");
             require(successFee, "Transfer of fee failed");
         }
         if (buyerAmount > 0) {
-            (bool success, ) = payable(order.buyer).call{value: buyerAmount}(
-                ""
-            );
+            (bool success,) = payable(order.buyer).call{value: buyerAmount}("");
             require(success, "Transfer to buyer failed");
         }
 
@@ -679,12 +647,10 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller, ) = payable(order.seller).call{
-            value: sellerAmount
-        }("");
+        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
         require(successSeller, "Seller transfer failed");
 
-        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
         require(successFee, " Fee transfer failed");
 
         delete sellerVotes[_orderId];
