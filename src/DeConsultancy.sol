@@ -5,24 +5,34 @@ pragma solidity ^0.8.19;
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /**
- * @title DeConsultancy - Decentralized Freelance Escrow platform
+ * @title DeConsultancy - Decentralized Freelance Escrow Platform
  * @author Naveen Shirodkar
- * @notice  A trustless escrow system for freelance services with built-in dispute resolution and arbitration.
- * @dev This contract enables buyers to create orders and lock funds in escrow, while sellers deliver services
- * off-chain. Funds are released only upon buyer approval, seller timeout claims, or dispute resolution.
+ * @notice A trustless escrow system for freelance and consultancy services with built-in dispute resolution and arbitration.
+ *
+ * @dev This contract enables buyers to create orders and lock funds in escrow while sellers must explicitly
+ * accept work before starting. Accepted orders follow a structured workflow where sellers deliver services
+ * off-chain and funds are released only upon buyer approval, seller timeout claims, refund conditions,
+ * or dispute resolution.
  *
  * Key Features:
- * - Escrow-based payments system between buyers and sellers
+ * - Escrow-based payment system between buyers and sellers
+ * - Seller acceptance workflow before work begins
  * - Time-bound delivery and refund mechanisms
- * - Dispute resolution via majority voting by arbiters
+ * - Buyer cancellation of unaccepted orders after timeout * - Dispute resolution via majority voting by arbiters
  * - Manual split resolution by arbiters (trusted override)
  * - Automatic fallback resolution after dispute timeout
  * - Platform fee deduction from seller earnings
  *
+ * Order Lifecycle:
+ * Paid → InProgress → Delivered → Completed
+ *                              ↘
+ *                                 Disputed
+ *
  * Design Considerations:
  * - Funds are transferred immediately (no withdrawal pattern)
- * - Minimal on-chain storage (uses hashes for requirements/work)
- * - Reentrancy protection for all fund transfers
+ * - Minimal on-chain storage using hashes for requirements and delivered work
+ * - Reentrancy protection for all fund transfer functions
+ * - Delivery deadlines begin only after seller acceptance
  */
 
 contract DeConsultancy is ReentrancyGuard {
@@ -70,6 +80,9 @@ contract DeConsultancy is ReentrancyGuard {
     /// @notice Thrown when delivery duration exceeds allowed limit
     error DeConsultancy__DurationTooLong();
 
+    /// @notice Thrown when accept timeout has not been reached
+    error DeConsultancy__AcceptTimeoutNotReached();
+
     /// @notice Thrown when delivery deadline has passed
     error DeConsultancy__DeadlinePassed();
 
@@ -83,6 +96,7 @@ contract DeConsultancy is ReentrancyGuard {
     enum State {
         Created,
         Paid,
+        InProgress,
         Delivered,
         Completed,
         Disputed
@@ -93,6 +107,9 @@ contract DeConsultancy is ReentrancyGuard {
         address seller;
         uint256 price;
         State state;
+        uint256 createdAt;
+        uint256 deliveryDuration;
+        uint256 acceptedAt;
         uint256 deliveryTime;
         uint256 deadline;
         bool disputed;
@@ -114,6 +131,7 @@ contract DeConsultancy is ReentrancyGuard {
     uint256 public orderCount;
     uint256 public constant TIMEOUT = 3 days;
     uint256 public constant DISPUTE_TIMEOUT = 3 days;
+    uint256 public constant ACCEPT_TIMEOUT = 2 days;
     uint256 public feePercentage = 2;
     address public feeRecipient;
 
@@ -124,16 +142,27 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param buyer Address of the buyer
     /// @param seller Address of the seller
     /// @param price Amount locked in escrow (in wei)
-    /// @param deadline Timestamp by which seller must deliver
+    /// @param deliveryDuration Delivery duration (in seconds) allocated after seller acceptance
     /// @param requirementsHash Hash of buyer requirements (off-chain data)
     event OrderCreated(
         uint256 indexed orderId,
         address indexed buyer,
         address indexed seller,
         uint256 price,
-        uint256 deadline,
+        uint256 deliveryDuration,
         bytes32 requirementsHash
     );
+
+    /**
+     * @notice Emitted when seller accepts an order
+     * @param orderId Order ID of the order
+     * @param seller Address of the seller
+     */
+    event OrderAccepted(uint256 indexed orderId, address indexed seller);
+
+    /// @notice Emitted when buyer cancels an unaccepted order after timeout
+    /// @param orderId ID of the cancelled order
+    event OrderCancelled(uint256 indexed orderId);
 
     /// @notice Emitted when seller marks the order as delivered
     /// @param orderId ID of the order
@@ -160,7 +189,11 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param orderId ID of the disputed order
     /// @param arbiter Address of the arbiter who voted
     /// @param voteSeller True if vote is in favor of seller, false for buyer
-    event Voted(uint256 indexed orderId, address indexed arbiter, bool voteSeller);
+    event Voted(
+        uint256 indexed orderId,
+        address indexed arbiter,
+        bool voteSeller
+    );
 
     /// @notice Emitted when a dispute is resolved in favor of one party
     /// @param orderId ID of the disputed order
@@ -171,7 +204,11 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param orderId ID of the disputed order
     /// @param sellerAmount Amount transferred to seller after fee deduction
     /// @param buyerAmount Amount refunded to buyer
-    event DisputeResolvedSplit(uint256 indexed orderId, uint256 sellerAmount, uint256 buyerAmount);
+    event DisputeResolvedSplit(
+        uint256 indexed orderId,
+        uint256 sellerAmount,
+        uint256 buyerAmount
+    );
 
     // Functions
     constructor(address[] memory _arbiters, address _feeRecipient) {
@@ -229,10 +266,12 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
+        (bool successSeller, ) = payable(order.seller).call{
+            value: sellerAmount
+        }("");
         require(successSeller, "Transfer to seller failed");
 
-        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
         require(successFee, "Transfer of fee failed");
 
         delete sellerVotes[_orderId];
@@ -257,7 +296,7 @@ contract DeConsultancy is ReentrancyGuard {
         disputeResolved[_orderId] = true;
         order.state = State.Completed;
 
-        (bool success,) = payable(order.buyer).call{value: order.price}("");
+        (bool success, ) = payable(order.buyer).call{value: order.price}("");
         require(success, "Transfer failed");
 
         delete sellerVotes[_orderId];
@@ -267,11 +306,16 @@ contract DeConsultancy is ReentrancyGuard {
     }
 
     /// @notice Creates a new order and locks payment in escrow
-    /// @dev The buyer must send exact ETH equal to seller's set price
+    /// @dev The buyer must send exact ETH equal to seller's set price.
+    /// Delivery deadline starts only after seller accepts the order.
     /// @param _seller Address of the seller providing the service
-    /// @param _deliveryDuration Time (in seconds) within which seller must deliver
+    /// @param _deliveryDuration Time (in seconds) within which seller must deliver after acceptance
     /// @param _requirementsHash Hash of off-chain requirements (IPFS or similar)
-    function createOrderAndPay(address _seller, uint256 _deliveryDuration, bytes32 _requirementsHash) public payable {
+    function createOrderAndPay(
+        address _seller,
+        uint256 _deliveryDuration,
+        bytes32 _requirementsHash
+    ) public payable {
         if (_seller == msg.sender) {
             revert DeConsultancy__BuyerSellerSame();
         }
@@ -296,19 +340,82 @@ contract DeConsultancy is ReentrancyGuard {
             seller: _seller,
             price: _price,
             state: State.Paid,
+            createdAt: block.timestamp,
+            deliveryDuration: _deliveryDuration,
+            acceptedAt: 0,
             deliveryTime: 0,
-            deadline: block.timestamp + _deliveryDuration,
+            deadline: 0,
             disputed: false,
             requirementsHash: _requirementsHash
         });
 
         emit OrderCreated(
-            orderCount, msg.sender, _seller, _price, block.timestamp + _deliveryDuration, _requirementsHash
+            orderCount,
+            msg.sender,
+            _seller,
+            _price,
+            _deliveryDuration,
+            _requirementsHash
         );
     }
 
+    /// @notice Allows buyer to cancel an unaccepted order after timeout
+    /// @dev Refunds full amount if seller does not accept within ACCEPT_TIMEOUT period
+    /// @param _orderId ID of the order
+    function cancelUnacceptedOrder(uint256 _orderId) public nonReentrant {
+        Order storage order = orders[_orderId];
+
+        if (order.buyer == address(0)) {
+            revert DeConsultancy__OrderNotExist();
+        }
+
+        if (msg.sender != order.buyer) {
+            revert DeConsultancy__NotBuyer();
+        }
+
+        if (order.state != State.Paid) {
+            revert DeConsultancy__InvalidState();
+        }
+
+        if (block.timestamp < order.createdAt + ACCEPT_TIMEOUT) {
+            revert DeConsultancy__AcceptTimeoutNotReached();
+        }
+
+        order.state = State.Completed;
+
+        (bool success, ) = payable(order.buyer).call{value: order.price}("");
+
+        require(success);
+
+        emit OrderCancelled(_orderId);
+    }
+
+    /// @notice Allows seller to accept an order and begin work
+    /// @dev Starts the delivery timer and moves order state to InProgress
+    /// @param _orderId ID of the order
+    function acceptOrder(uint256 _orderId) public {
+        Order storage order = orders[_orderId];
+
+        if (order.buyer == address(0)) {
+            revert DeConsultancy__OrderNotExist();
+        }
+        if (msg.sender != order.seller) {
+            revert DeConsultancy__NotSeller();
+        }
+        if (order.state != State.Paid) {
+            revert DeConsultancy__InvalidState();
+        }
+
+        order.state = State.InProgress;
+        order.acceptedAt = block.timestamp;
+
+        order.deadline = block.timestamp + order.deliveryDuration;
+
+        emit OrderAccepted(_orderId, msg.sender);
+    }
+
     /// @notice Marks an order as delivered by the seller
-    /// @dev Can only be called by seller before deadline
+    /// @dev Can only be called by seller while order is InProgress and before deadline
     /// @param _orderId ID of the order
     /// @param _workHash Hash of delivered work (stored off-chain)
     function markDelivered(uint256 _orderId, string memory _workHash) public {
@@ -323,7 +430,7 @@ contract DeConsultancy is ReentrancyGuard {
         if (msg.sender != order.seller) {
             revert DeConsultancy__NotSeller();
         }
-        if (order.state != State.Paid) {
+        if (order.state != State.InProgress) {
             revert DeConsultancy__InvalidState();
         }
 
@@ -334,7 +441,7 @@ contract DeConsultancy is ReentrancyGuard {
     }
 
     /// @notice Allows buyer to claim refund if seller fails to deliver before deadline
-    /// @dev Can only be called after delivery deadline has passed
+    /// @dev Can only be called after delivery deadline has passed for and accecpted order
     /// @param _orderId ID of the order
     function claimRefund(uint256 _orderId) public nonReentrant {
         Order storage order = orders[_orderId];
@@ -342,7 +449,7 @@ contract DeConsultancy is ReentrancyGuard {
         if (order.buyer == address(0)) {
             revert DeConsultancy__OrderNotExist();
         }
-        if (order.state != State.Paid) {
+        if (order.state != State.InProgress) {
             revert DeConsultancy__InvalidState();
         }
         if (order.buyer != msg.sender) {
@@ -354,7 +461,7 @@ contract DeConsultancy is ReentrancyGuard {
 
         order.state = State.Completed;
 
-        (bool success,) = payable(order.buyer).call{value: order.price}("");
+        (bool success, ) = payable(order.buyer).call{value: order.price}("");
         require(success, "Refund transfer failed");
 
         emit RefundClaimed(_orderId);
@@ -380,10 +487,12 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
+        (bool successSeller, ) = payable(order.seller).call{
+            value: sellerAmount
+        }("");
         require(successSeller, "Transfer to seller failed");
 
-        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
         require(successFee, "Fee transfer failed");
 
         emit OrderCompleted(_orderId);
@@ -413,10 +522,12 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
+        (bool successSeller, ) = payable(order.seller).call{
+            value: sellerAmount
+        }("");
         require(successSeller, "Transfer to seller failed");
 
-        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
         require(successFee, "Fee transfer failed");
 
         emit AfterTimeoutClaimed(_orderId);
@@ -491,7 +602,10 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param sellerAmount Amount (in wei) allocated to seller before fee deduction
     /// @dev WARNING: This function allows a single arbiter to override dispute outcome.
     /// Should only be used in trusted arbitration setups.
-    function resolveSplit(uint256 _orderId, uint256 sellerAmount) public nonReentrant {
+    function resolveSplit(
+        uint256 _orderId,
+        uint256 sellerAmount
+    ) public nonReentrant {
         Order storage order = orders[_orderId];
 
         if (order.buyer == address(0)) {
@@ -519,14 +633,18 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 sellerAmountAfterFee = sellerAmount - fee;
 
         if (sellerAmount > 0) {
-            (bool successSeller,) = payable(order.seller).call{value: sellerAmountAfterFee}("");
+            (bool successSeller, ) = payable(order.seller).call{
+                value: sellerAmountAfterFee
+            }("");
             require(successSeller, "Transfer to seller failed");
 
-            (bool successFee,) = payable(feeRecipient).call{value: fee}("");
+            (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
             require(successFee, "Transfer of fee failed");
         }
         if (buyerAmount > 0) {
-            (bool success,) = payable(order.buyer).call{value: buyerAmount}("");
+            (bool success, ) = payable(order.buyer).call{value: buyerAmount}(
+                ""
+            );
             require(success, "Transfer to buyer failed");
         }
 
@@ -561,10 +679,12 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 fee = _calculateFee(order.price);
         uint256 sellerAmount = order.price - fee;
 
-        (bool successSeller,) = payable(order.seller).call{value: sellerAmount}("");
+        (bool successSeller, ) = payable(order.seller).call{
+            value: sellerAmount
+        }("");
         require(successSeller, "Seller transfer failed");
 
-        (bool successFee,) = payable(feeRecipient).call{value: fee}("");
+        (bool successFee, ) = payable(feeRecipient).call{value: fee}("");
         require(successFee, " Fee transfer failed");
 
         delete sellerVotes[_orderId];
