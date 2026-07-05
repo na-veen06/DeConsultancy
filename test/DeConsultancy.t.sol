@@ -14,7 +14,7 @@ contract DeConsultancyTest is Test {
     address arbiter1 = address(6);
     address arbiter2 = address(7);
     address arbiter3 = address(8);
-    bytes32 requirementsHash = keccak256(abi.encodePacked("Build me a website"));
+    string requirementsCid = "QmW87n6N4v5x5x5x5x5x5x5x5x5x5x5x5x5x5x5x5x5";
 
     address[] arbiters = [arbiter1, arbiter2, arbiter3];
 
@@ -31,7 +31,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsCid);
 
         assertEq(deConsultancy.orderCount(), 1);
 
@@ -52,7 +52,7 @@ contract DeConsultancyTest is Test {
 
         vm.prank(buyer);
         vm.expectRevert(DeConsultancy.DeConsultancy__IncorrectPrice.selector);
-        deConsultancy.createOrderAndPay{value: 0.5 ether}(seller, 1 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 0.5 ether}(seller, 1 days, requirementsCid);
 
         assertEq(deConsultancy.orderCount(), 0);
     }
@@ -60,7 +60,7 @@ contract DeConsultancyTest is Test {
     function testCreateOrderAndPayWithNoPriceSet() public {
         vm.prank(buyer);
         vm.expectRevert(DeConsultancy.DeConsultancy__PriceNotSet.selector);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsCid);
 
         assertEq(deConsultancy.orderCount(), 0);
     }
@@ -71,7 +71,7 @@ contract DeConsultancyTest is Test {
 
         vm.prank(seller);
         vm.expectRevert(DeConsultancy.DeConsultancy__BuyerSellerSame.selector);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsCid);
 
         assertEq(deConsultancy.orderCount(), 0);
     }
@@ -82,7 +82,7 @@ contract DeConsultancyTest is Test {
 
         vm.prank(buyer);
         vm.expectRevert(DeConsultancy.DeConsultancy__InvalidDuration.selector);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 0 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 0 days, requirementsCid);
 
         assertEq(deConsultancy.orderCount(), 0);
     }
@@ -93,7 +93,7 @@ contract DeConsultancyTest is Test {
 
         vm.prank(buyer);
         vm.expectRevert(DeConsultancy.DeConsultancy__DurationTooLong.selector);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 31 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 31 days, requirementsCid);
 
         assertEq(deConsultancy.orderCount(), 0);
     }
@@ -104,10 +104,10 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.expectEmit(true, true, false, true);
-        emit DeConsultancy.OrderCreated(1, buyer, seller, 1 ether, 1 days, requirementsHash);
+        emit DeConsultancy.OrderCreated(1, buyer, seller, 1 ether, 1 days, requirementsCid);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsCid);
     }
 
     // Test Cases for CancelUnacceptedOrder
@@ -116,7 +116,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         uint256 buyerInitialBalance = buyer.balance;
 
@@ -145,7 +145,7 @@ contract DeConsultancyTest is Test {
 
         vm.prank(buyer);
 
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsCid);
 
         vm.expectRevert(DeConsultancy.DeConsultancy__AcceptTimeoutNotReached.selector);
 
@@ -160,7 +160,7 @@ contract DeConsultancyTest is Test {
 
         vm.prank(buyer);
 
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsCid);
 
         vm.warp(block.timestamp + deConsultancy.ACCEPT_TIMEOUT());
 
@@ -177,7 +177,7 @@ contract DeConsultancyTest is Test {
 
         vm.prank(buyer);
 
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -197,7 +197,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.warp(block.timestamp + deConsultancy.ACCEPT_TIMEOUT());
 
@@ -214,7 +214,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -241,7 +241,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsCid);
 
         vm.expectRevert(DeConsultancy.DeConsultancy__NotSeller.selector);
         vm.prank(buyer);
@@ -253,7 +253,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -271,7 +271,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 5 days, requirementsCid);
 
         vm.expectEmit(true, false, false, true);
         emit DeConsultancy.OrderAccepted(1, msg.sender);
@@ -286,7 +286,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -312,7 +312,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -327,7 +327,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -344,7 +344,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -363,7 +363,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 1 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -381,7 +381,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -414,7 +414,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -431,7 +431,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -447,7 +447,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -468,7 +468,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -492,7 +492,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -532,7 +532,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -550,7 +550,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -565,7 +565,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -587,7 +587,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -612,7 +612,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 6 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -656,7 +656,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -677,7 +677,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -701,7 +701,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -723,7 +723,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -747,7 +747,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -777,7 +777,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -795,7 +795,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -810,7 +810,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -832,7 +832,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -853,7 +853,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -876,7 +876,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -907,7 +907,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -928,7 +928,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -946,7 +946,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -970,7 +970,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1000,7 +1000,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1035,7 +1035,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1064,7 +1064,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1086,7 +1086,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1116,7 +1116,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1147,7 +1147,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1170,7 +1170,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(1 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 1 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1200,7 +1200,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         uint256 buyerBalanceAfterPayment = buyer.balance;
 
@@ -1239,7 +1239,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1262,7 +1262,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1283,7 +1283,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1303,7 +1303,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1331,7 +1331,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1356,7 +1356,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1387,7 +1387,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1423,7 +1423,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1440,7 +1440,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1462,7 +1462,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);
@@ -1487,7 +1487,7 @@ contract DeConsultancyTest is Test {
         deConsultancy.setPrice(7 ether);
 
         vm.prank(buyer);
-        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsHash);
+        deConsultancy.createOrderAndPay{value: 7 ether}(seller, 7 days, requirementsCid);
 
         vm.prank(seller);
         deConsultancy.acceptOrder(1);

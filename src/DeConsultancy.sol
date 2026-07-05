@@ -113,7 +113,7 @@ contract DeConsultancy is ReentrancyGuard {
         uint256 deliveryTime;
         uint256 deadline;
         bool disputed;
-        bytes32 requirementsHash;
+        string requirementsCid;
     }
 
     // State Variables
@@ -143,14 +143,14 @@ contract DeConsultancy is ReentrancyGuard {
     /// @param seller Address of the seller
     /// @param price Amount locked in escrow (in wei)
     /// @param deliveryDuration Delivery duration (in seconds) allocated after seller acceptance
-    /// @param requirementsHash Hash of buyer requirements (off-chain data)
+    /// @param requirementsCid CID of buyer requirements (off-chain data)
     event OrderCreated(
         uint256 indexed orderId,
         address indexed buyer,
         address indexed seller,
         uint256 price,
         uint256 deliveryDuration,
-        bytes32 requirementsHash
+        string requirementsCid
     );
 
     /**
@@ -166,8 +166,8 @@ contract DeConsultancy is ReentrancyGuard {
 
     /// @notice Emitted when seller marks the order as delivered
     /// @param orderId ID of the order
-    /// @param workHash Hash of delivered work (off-chain reference)
-    event OrderDelivered(uint256 indexed orderId, string workHash);
+    /// @param workCid CID of delivered work (off-chain reference)
+    event OrderDelivered(uint256 indexed orderId, string workCid);
 
     /// @notice Emitted when buyer successfully claims refund after deadline
     /// @param orderId ID of the order
@@ -300,8 +300,11 @@ contract DeConsultancy is ReentrancyGuard {
     /// Delivery deadline starts only after seller accepts the order.
     /// @param _seller Address of the seller providing the service
     /// @param _deliveryDuration Time (in seconds) within which seller must deliver after acceptance
-    /// @param _requirementsHash Hash of off-chain requirements (IPFS or similar)
-    function createOrderAndPay(address _seller, uint256 _deliveryDuration, bytes32 _requirementsHash) public payable {
+    /// @param _requirementsCid CID of off-chain requirements (IPFS or similar)
+    function createOrderAndPay(address _seller, uint256 _deliveryDuration, string memory _requirementsCid)
+        public
+        payable
+    {
         if (_seller == msg.sender) {
             revert DeConsultancy__BuyerSellerSame();
         }
@@ -332,10 +335,10 @@ contract DeConsultancy is ReentrancyGuard {
             deliveryTime: 0,
             deadline: 0,
             disputed: false,
-            requirementsHash: _requirementsHash
+            requirementsCid: _requirementsCid
         });
 
-        emit OrderCreated(orderCount, msg.sender, _seller, _price, _deliveryDuration, _requirementsHash);
+        emit OrderCreated(orderCount, msg.sender, _seller, _price, _deliveryDuration, _requirementsCid);
     }
 
     /// @notice Allows buyer to cancel an unaccepted order after timeout
@@ -396,8 +399,8 @@ contract DeConsultancy is ReentrancyGuard {
     /// @notice Marks an order as delivered by the seller
     /// @dev Can only be called by seller while order is InProgress and before deadline
     /// @param _orderId ID of the order
-    /// @param _workHash Hash of delivered work (stored off-chain)
-    function markDelivered(uint256 _orderId, string memory _workHash) public {
+    /// @param _workCid CID of delivered work (stored off-chain)
+    function markDelivered(uint256 _orderId, string memory _workCid) public {
         Order storage order = orders[_orderId];
 
         if (order.buyer == address(0)) {
@@ -416,7 +419,7 @@ contract DeConsultancy is ReentrancyGuard {
         order.state = State.Delivered;
         order.deliveryTime = block.timestamp;
 
-        emit OrderDelivered(_orderId, _workHash);
+        emit OrderDelivered(_orderId, _workCid);
     }
 
     /// @notice Allows buyer to claim refund if seller fails to deliver before deadline
