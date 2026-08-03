@@ -1,6 +1,6 @@
-# 🚀 DeConsultancy – Decentralized Freelance Escrow Platform
+# 🚀 DeConsultancy – Decentralized Consultancy Escrow Platform
 
-A **trustless freelance marketplace smart contract** built on Ethereum that enables secure transactions between buyers and sellers using an escrow mechanism with built-in dispute resolution.
+A **trustless Consultancy marketplace smart contract** built on Ethereum that enables secure transactions between buyers and sellers using an escrow mechanism with built-in dispute resolution.
 
 ---
 
